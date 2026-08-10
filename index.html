@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Beyond Borders</title>
+<style>
+  body { font-family: -apple-system, "Noto Sans Tamil", system-ui, sans-serif;
+         display: flex; min-height: 100vh; align-items: center; justify-content: center;
+         margin: 0; background: #101014; color: #eee; text-align: center; }
+  .box { max-width: 420px; padding: 32px 24px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  p { font-size: 15px; line-height: 1.6; color: #bbb; margin: 8px 0; }
+  .spin { width: 22px; height: 22px; border: 3px solid #333; border-top-color: #e2703a;
+          border-radius: 50%; margin: 18px auto; animation: r .8s linear infinite; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  a { color: #e2703a; }
+  button { font: inherit; padding: 10px 18px; border-radius: 8px; border: 1px solid #555;
+           background: transparent; color: #eee; margin-top: 10px; cursor: pointer; }
+  .hide { display: none; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>AI Beyond Borders</h1>
+  <p>நம்ம குரல் · dialect bench</p>
+  <div id="working">
+    <div class="spin"></div>
+    <p>Connecting to the bench&hellip; இணைக்கிறோம்&hellip;</p>
+  </div>
+  <div id="down" class="hide">
+    <p><strong>The bench is asleep right now.</strong><br>
+       பெஞ்ச் இப்போ ஆஃப்லைன்ல இருக்கு.</p>
+    <p>Ask Dharunish to start it, then tap retry.</p>
+    <button onclick="location.reload()">Retry · மறுபடி முயற்சி</button>
+    <p id="rawlink"></p>
+  </div>
+</div>
+<script>
+(async () => {
+  const show = id => {
+    document.getElementById("working").classList.add("hide");
+    document.getElementById(id).classList.remove("hide");
+  };
+  let url = "";
+  try {
+    const r = await fetch("https://raw.githubusercontent.com/dharunish/ai-beyond-borders/main/bench.json?t=" + Date.now(),
+                          { cache: "no-store" });
+    url = (await r.json()).url;
+  } catch (e) {
+    try {
+      const r2 = await fetch("bench.json?t=" + Date.now(), { cache: "no-store" });
+      url = (await r2.json()).url;
+    } catch (e2) {}
+  }
+  if (!url) { show("down"); return; }
+  document.getElementById("rawlink").innerHTML =
+    'Last known address: <a href="' + url + '">' + url.replace("https://", "") + "</a>";
+  try {
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), 7000);
+    const s = await fetch(url + "/status", { signal: ctl.signal });
+    if (s.ok) { location.replace(url); return; }
+  } catch (e) {}
+  show("down");
+})();
+</script>
+</body>
+</html>
