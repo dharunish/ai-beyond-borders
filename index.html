@@ -31,39 +31,61 @@
   <div id="down" class="hide">
     <p><strong>The bench is asleep right now.</strong><br>
        பெஞ்ச் இப்போ ஆஃப்லைன்ல இருக்கு.</p>
-    <p>Ask Dharunish to start it, then tap retry.</p>
-    <button onclick="location.reload()">Retry · மறுபடி முயற்சி</button>
+    <p>Ask Dharunish to start it — this page retries by itself.<br>
+       <span id="countdown"></span></p>
+    <button onclick="location.reload()">Retry now · இப்பவே முயற்சி</button>
     <p id="rawlink"></p>
   </div>
 </div>
 <script>
-(async () => {
-  const show = id => {
-    document.getElementById("working").classList.add("hide");
-    document.getElementById(id).classList.remove("hide");
-  };
-  let url = "";
+const $ = id => document.getElementById(id);
+const show = id => {
+  $("working").classList.add("hide"); $("down").classList.add("hide");
+  $(id).classList.remove("hide");
+};
+
+async function getJson(u) {
   try {
-    const r = await fetch("https://raw.githubusercontent.com/dharunish/ai-beyond-borders/main/bench.json?t=" + Date.now(),
-                          { cache: "no-store" });
-    url = (await r.json()).url;
-  } catch (e) {
+    const r = await fetch(u + "?t=" + Date.now(), { cache: "no-store" });
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+async function freshestPointer() {
+  const [a, b] = await Promise.all([
+    getJson("https://raw.githubusercontent.com/dharunish/ai-beyond-borders/main/bench.json"),
+    getJson("bench.json"),
+  ]);
+  const both = [a, b].filter(x => x && x.url);
+  if (!both.length) return null;
+  both.sort((x, y) => (y.updated || "").localeCompare(x.updated || ""));
+  return both[0];
+}
+
+async function attempt() {
+  show("working");
+  const p = await freshestPointer();
+  if (p) {
+    $("rawlink").innerHTML = 'Last known address (' + (p.updated || "?") + ' UTC): <a href="' +
+      p.url + '">' + p.url.replace("https://", "") + "</a>";
     try {
-      const r2 = await fetch("bench.json?t=" + Date.now(), { cache: "no-store" });
-      url = (await r2.json()).url;
-    } catch (e2) {}
+      const ctl = new AbortController();
+      setTimeout(() => ctl.abort(), 7000);
+      const s = await fetch(p.url + "/status", { signal: ctl.signal });
+      if (s.ok) { location.replace(p.url); return; }
+    } catch (e) {}
   }
-  if (!url) { show("down"); return; }
-  document.getElementById("rawlink").innerHTML =
-    'Last known address: <a href="' + url + '">' + url.replace("https://", "") + "</a>";
-  try {
-    const ctl = new AbortController();
-    setTimeout(() => ctl.abort(), 7000);
-    const s = await fetch(url + "/status", { signal: ctl.signal });
-    if (s.ok) { location.replace(url); return; }
-  } catch (e) {}
   show("down");
-})();
+  let left = 20;
+  $("countdown").textContent = "Retrying in " + left + "s…";
+  const iv = setInterval(() => {
+    left -= 1;
+    $("countdown").textContent = "Retrying in " + left + "s…";
+    if (left <= 0) { clearInterval(iv); attempt(); }
+  }, 1000);
+}
+
+attempt();
 </script>
 </body>
 </html>
